@@ -15,7 +15,7 @@
 namespace scan_map_icp
 {
 ScanMapIcp::ScanMapIcp():
-  private_nh_("scan_map_icp")
+  private_nh_("~")
 {
   initialParams();
   global_nh_.param("base_laser_frame", base_laser_frame_, std::string("base_laser_link"));
@@ -35,8 +35,10 @@ ScanMapIcp::ScanMapIcp():
   listener_ = &listener;
   laser_scan_sub_ = private_nh_.subscribe<sensor_msgs::LaserScan>("scan", 1, &ScanMapIcp::laserScanSubCallback, this);
   map_sub_ = private_nh_.subscribe<nav_msgs::OccupancyGrid>("map", 1, &ScanMapIcp::mapSubCallback, this);
-  base_motion_type_sub_ = global_nh_.subscribe<std_msgs::String>("base_motion_type", 1, &ScanMapIcp::baseMotionTypeSubCallback, this);
-  base_motion_type_ = std::string("static");
+  //base_motion_type_sub_ = global_nh_.subscribe<std_msgs::String>("base_motion_type", 1, &ScanMapIcp::baseMotionTypeSubCallback, this);
+  call_icp_sub_ = global_nh_.subscribe<std_msgs::String>("call_icp", 1, &ScanMapIcp::callIcpSubCallback, this);
+  //base_motion_type_ = std::string("static");
+  call_icp_msg_ = std::string("finish");
   initial_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("initial_pose", 1);
   icp_run_info_pub_ = private_nh_.advertise<std_msgs::String>("icp_run_info", 1);
   map_to_cloud_point_pub_ = private_nh_.advertise<sensor_msgs::PointCloud2>("map_point", 1);
@@ -73,17 +75,19 @@ void ScanMapIcp::initialParams()
 {
   icp_fitness_threshold_ = 100.1;
   dist_threshold_ = 0.05;
-  angle_threshold_ = 0.05;
+  angle_threshold_ = 0.01;
   angle_upper_threshold_ = M_PI / 6;
   age_threshold_ = 1;
   update_age_threshold_ = 1;
-  icp_inlier_dist_ = 0.9;
-  icp_inlier_threshold_ = 0.1;
+  icp_inlier_dist_ = 0.1;
+  icp_inlier_threshold_ = 0.9;
   pose_covariance_trans_ = 1.5;
   icp_num_iter_ = 250;
   scan_rate_ = 2;
  // status_loop_thread_ = true;
   last_time_sent_ = -1000;
+  act_scan_ = 0;
+  last_scan_ = 0;
 }
 void ScanMapIcp::updateParamsLoop()
 {
@@ -93,20 +97,20 @@ void ScanMapIcp::updateParamsLoop()
     if (act_scan_ > last_scan_)
     {
       last_scan_ = act_scan_;
-      if (has_map_)
-      {
-        map_to_cloud_point_pub_.publish(map_cloud_);
-       // has_map_ = false;
-      }
-      if (has_scan_)
-      {
-        scan_to_cloud_point_pub_.publish(scan_cloud_);
-        has_scan_ = false;
-      }
+//      if (has_map_)
+//      {
+//        map_to_cloud_point_pub_.publish(map_cloud_);
+//       // has_map_ = false;
+//      }
+//      if (has_scan_)
+//      {
+//        scan_to_cloud_point_pub_.publish(scan_cloud_);
+//        has_scan_ = false;
+//      }
       if (has_scan_transform_)
       {
         scan_after_transform_pub_.publish(cloud2transformed_);
-        has_scan_transform_ = false;
+ //      has_scan_transform_ = false;
       }
     }
     loop_rate.sleep();
@@ -399,17 +403,17 @@ void ScanMapIcp::computeInlierPecent(PointCloudT &pc)
   std::vector<int> nn_indices(1); // save search results' index
   std::vector<float> nn_sqr_dists(1); // save search results' distance
   size_t inlier_num = 0;
-  for(size_t k = 0; k < pc.points.size(); ++k)
+  for (size_t k = 0; k < pc.points.size(); ++k)
   {
     //Search for all the nearest neighbors of the query point in a given radius
-    if(map_tree_->radiusSearch(pc.points[k], icp_inlier_dist_, nn_indices, nn_sqr_dists,1) != 0)
+    if (map_tree_->radiusSearch(pc.points[k], icp_inlier_dist_, nn_indices, nn_sqr_dists, 1) != 0)
     {
       inlier_num += 1;
     }
-    if(pc.points.size() > 0)
-    {
-      icp_result_.inlier_percent = (double)inlier_num / (double)pc.points.size();
-    }
+  }
+  if (pc.points.size() > 0)
+  {
+    icp_result_.inlier_percent = (double) inlier_num / (double) pc.points.size();
   }
 }
 
@@ -425,7 +429,7 @@ void ScanMapIcp::publishIcpInfo()
   str.data = msg_c_str;
   double cov = pose_covariance_trans_;
   //judge whether satisfy relocation
-  if ((last_scan_ - last_time_sent_) > update_age_threshold_ && (icp_result_.dist > dist_threshold_ || icp_result_.angle_dist > angle_threshold_) \
+  if ((act_scan_ - last_time_sent_) > update_age_threshold_ && (icp_result_.dist > dist_threshold_ || icp_result_.angle_dist > angle_threshold_) \
      && (icp_result_.inlier_percent > icp_inlier_threshold_) && (icp_result_.angle_dist < angle_upper_threshold_))
   {
     last_time_sent_ = act_scan_;
@@ -444,13 +448,16 @@ void ScanMapIcp::publishIcpInfo()
     ROS_INFO("publish a new initial pose, dist %f angle_dist %f,setting pose:%.3f %.3f [frame=%s] ", \
              icp_result_.dist, icp_result_.angle_dist, pose.pose.pose.position.x, pose.pose.pose.position.y,\
              pose.header.frame_id.c_str());
-    if (base_motion_type_ == "turn")
+    if (call_icp_msg_ == "start")
     {
+      ROS_WARN("publish a new initial pose, dist %f angle_dist %f,setting pose:%.3f %.3f [frame=%s] ", \
+               icp_result_.dist, icp_result_.angle_dist, pose.pose.pose.position.x, pose.pose.pose.position.y,\
+               pose.header.frame_id.c_str());
       initial_pose_pub_.publish(pose);
     }
     str.data += "<< sent";
   }
-  if (base_motion_type_ == "turn")
+  if (call_icp_msg_ == "start")
   {
     icp_run_info_pub_.publish(str);
   }
@@ -458,24 +465,24 @@ void ScanMapIcp::publishIcpInfo()
 void ScanMapIcp::updateParams()
 {
   params_were_updated_ = ros::Time::now();
-  global_nh_.param("use_sim_time", use_sim_time_, false);
-  global_nh_.param("icp_fitness_threshold", icp_fitness_threshold_, 100.0);
-  global_nh_.param("age_threshold", age_threshold_, 1.0);
-  global_nh_.param("angle_upper_threshold", angle_upper_threshold_, 1.0);
-  global_nh_.param("angle_threshold", angle_threshold_, 0.05);
-  global_nh_.param("update_age_threshold", update_age_threshold_, 1.0);
-  global_nh_.param("dist_threshold", dist_threshold_, 0.05);
-  global_nh_.param("icp_inlier_threshold", icp_inlier_threshold_, 0.88);
-  global_nh_.param("icp_inlier_dist", icp_inlier_dist_, 0.1);
-  global_nh_.param("icp_num_iter", icp_num_iter_, 250);
-  global_nh_.param("pose_covariance_trans", pose_covariance_trans_, 0.5);
-  global_nh_.param("scan_rate", scan_rate_, 2);
+  private_nh_.param("use_sim_time", use_sim_time_, false);
+  private_nh_.param("icp_fitness_threshold", icp_fitness_threshold_, 100.0);
+  private_nh_.param("age_threshold", age_threshold_, 1.0);
+  private_nh_.param("angle_upper_threshold", angle_upper_threshold_, 1.0);
+  private_nh_.param("angle_threshold", angle_threshold_, 0.01);
+  private_nh_.param("update_age_threshold", update_age_threshold_, 1.0);
+  private_nh_.param("dist_threshold", dist_threshold_, 0.01);
+  private_nh_.param("icp_inlier_threshold", icp_inlier_threshold_, 0.88);
+  private_nh_.param("icp_inlier_dist", icp_inlier_dist_, 0.1);
+  private_nh_.param("icp_num_iter", icp_num_iter_, 250);
+  private_nh_.param("pose_covariance_trans", pose_covariance_trans_, 0.5);
+  private_nh_.param("scan_rate", scan_rate_, 2);
   if(scan_rate_ < .001)
   {
     scan_rate_ = .001;
   }
 }
-
+/*
 void ScanMapIcp::baseMotionTypeSubCallback(const std_msgs::String::ConstPtr &data)
 {
   if (data->data == "straight")
@@ -497,5 +504,22 @@ void ScanMapIcp::baseMotionTypeSubCallback(const std_msgs::String::ConstPtr &dat
   else
   {}
   base_motion_type_ = data->data;
+}*/
+void ScanMapIcp::callIcpSubCallback(const std_msgs::String::ConstPtr &data)
+{
+  if (data->data == "start")
+  {
+    ROS_INFO("NOW, START TO CALL ICP!");
+    call_icp_msg_ = data->data;
+  }
+  else if (data->data == "finish")
+  {
+    ROS_INFO("Now, FINSH CALL ICP!");
+    call_icp_msg_ = data->data;
+  }
+  else
+  {
+    ROS_ERROR("INVALID MSG!");
+  }
 }
 }

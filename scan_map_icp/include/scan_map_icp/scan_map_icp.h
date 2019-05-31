@@ -59,7 +59,8 @@ private:
   ros::NodeHandle global_nh_;
   ros::Subscriber laser_scan_sub_;
   ros::Subscriber map_sub_;
-  ros::Subscriber base_motion_type_sub_;
+  //ros::Subscriber base_motion_type_sub_;
+  ros::Subscriber call_icp_sub_;
   ros::Publisher initial_pose_pub_;
   ros::Publisher map_to_cloud_point_pub_;
   ros::Publisher scan_to_cloud_point_pub_;
@@ -90,7 +91,9 @@ private:
   bool got_transform_;
   bool publish_initial_pose_;
   //底盘当前是走直线还是转圈,"straight" or "turn" or "arc"
-  std::string base_motion_type_;
+  //std::string base_motion_type_;
+  //"start" or "finish"
+  std::string call_icp_msg_;
   IcpResultData icp_result_;
   ros::Duration scan_age_;
   double fitness_score_;
@@ -138,7 +141,8 @@ private:
  // void publishRelocationPose();
   void transformScanToPointcloud();
   // 当前是走直线还是转弯
-  void baseMotionTypeSubCallback(const std_msgs::String::ConstPtr &data);
+  //void baseMotionTypeSubCallback(const std_msgs::String::ConstPtr &data);
+  void callIcpSubCallback(const std_msgs::String::ConstPtr &data);
 private:
   /**
    * @brief icp_fitness_threshold_ ,defines how good the match has to be to create
