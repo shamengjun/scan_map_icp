@@ -1,0 +1,8 @@
+<launch>
+  <node pkg="scan_map_icp" type="scan_map_icp_node" name="scan_map_icp_node" output="screen">    
+     <rosparam file="$(find scan_map_icp)/cfg/scan_map_icp.yaml" command="load"/>
+     <remap from="/scan_map_icp/scan" to="/scan" />
+     <remap from="/scan_map_icp/map" to="/map" />
+     <remap from="/scan_map_icp/initial_pose" to="/initialpose" />
+  </node>
+</launch>
