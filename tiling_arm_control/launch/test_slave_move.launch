@@ -1,0 +1,7 @@
+<launch>
+  <group ns="slave">
+  <node name="robot_side_by_side_node" pkg="tiling_arm_control"   type="robot_side_by_side_node" respawn="false" output="screen">
+  </node>
+    <param name="move_dist" value="-0.6"/>
+  </group>
+</launch>

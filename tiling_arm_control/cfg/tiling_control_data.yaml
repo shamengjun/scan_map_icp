@@ -1,0 +1,44 @@
+#机器人初始吸砖位置
+first_suck_tile_pose_header_frame_id :  "/world"
+first_suck_tile_pose_pose_position_x : 0.461
+first_suck_tile_pose_pose_position_y : 0.0
+first_suck_tile_pose_pose_position_z : 0.535
+first_suck_tile_pose_pose_orientation_Rx : -3.120
+first_suck_tile_pose_pose_orientation_Ry : -0.012
+first_suck_tile_pose_pose_orientation_Rz : -1.515
+#  tiling_arm->setFirstTilePos(0.15, -1.008
+#   tiling_arm->setSuckPanPos(0.471, 0.029, 0.5);
+#   tiling_arm->setSuckPanOri(-3.135, -0.003, 0.727);
+
+#第一块铺砖位置
+first_tiling_pos_header_frame_id : "/world"
+first_tiling_pos_pose_position_x : 0.3
+first_tiling_pos_pose_position_y : -1.05
+first_tiling_pos_pose_position_z : 0.4
+first_tiling_pos_pose_orientation_Rx : -3.120
+first_tiling_pos_pose_orientation_Ry : -0.012
+first_tiling_pos_pose_orientation_Rz : -1.515
+
+tile_info_tile_width : 0.310    #砖宽
+tile_info_tile_length : 0.310   #砖长
+tile_info_tile_height : 0.094  #砖高
+tile_info_tile_gap : 0.007
+deviance : 0.015 #
+down_value_ : 0.03      #用于向下移动的经验值
+adjust_value_ : 0.005   #调节移动的经验值
+near_value_ : 0.2   #附近高度的经验值
+
+bounce_dis : 0.015  #回弹高度经验值
+tile_num : 12         #卡槽里放的砖的块数
+unit_tile_num : 4   #一个单元铺的砖块数，目前2×2，以后需废弃
+unit_tile_column_num : 2 #一个单元竖着铺的砖块数
+unit_tile_line_num : 2 #一个单元横者铺的砖块数
+unit_num : 4  #一排要铺多少个单元
+row_num : 2 #一个房间要铺的排数
+
+#铺砖方向有8种。第一排 ：沿x方向铺砖：x-y+,x+y+,x-y-,x+y+ 沿y方向铺砖：y-x-,y-x+,y+x+,y+x-
+tiling_orientation : 0     #沿x方向铺为0,沿y方向铺为1
+tiling_orientation_x : -1  #x正方向1,负方向-1
+tiling_orientation_y : -1  #y正方向1,负方向-1
+
+tool_height : 0.35 #tool height

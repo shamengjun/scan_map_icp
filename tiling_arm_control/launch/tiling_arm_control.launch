@@ -1,0 +1,15 @@
+<launch>
+    <arg name="debug" default="false" />
+    <arg unless="$(arg debug)" name="launch_prefix" value="" />
+    <arg     if="$(arg debug)" name="launch_prefix" value="xterm -e gdb --args" />
+    <rosparam file="$(find tile_search)/cfg/tile_search.yaml" command="load"/>
+    <rosparam file="$(find tiling_arm_control)/cfg/tiling_control_data.yaml" command="load"/>
+    <node name="tiling_arm_control_node" pkg="tiling_arm_control"  type="tiling_arm_control_node" respawn="false" output="screen"
+    launch-prefix="$(arg launch_prefix)">
+       <!--remap from="robot_description" to="arm_robot_description"/-->
+       <!--remap from="robot_description_semantic" to="arm_robot_description_semantic"/-->
+       <remap from="robot_description" to="arm_robot_description"/>
+       <remap from="joint_states" to="arm_joint_states"/>
+       <remap from="/robot_state_publisher" to="arm/robot_state_publisher"/>
+    </node>
+</launch>
